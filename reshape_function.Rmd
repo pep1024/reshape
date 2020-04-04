@@ -1,0 +1,663 @@
+---
+title: "Reshape base R function tutorial"
+author: "Pep Porrà"
+date: "December 16, 2018"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 4
+    toc_float:
+      collapsed: FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Goal
+
+The goal of this note is to explain how to use the function `reshape` to transform (reshape) a data frame between the long and wide formats. 
+
+There are lots of alternatives to this function that are probably faster and, for sure, easy to apply. I have devoted time to this function because I love the `R` base functions.
+
+As just said, `reshape` function changes the way a data frame is shown. Let us assume the data frame has `N` rows and `M` columns, so `M * N = L` cells. In the long version of the data frame, the number of columns is the minimum possible when each row represents one and only one observation and one attribute. I understand as the attribute, the value given to observation. So, in the long format, there is only one value for each observation. All other formats are wide formats. This definition of the long format is quite criptic. Hopefully, it can be better understood through examples.
+
+## Datasets
+
+Let us shown some examples of datasets and agree if they are in the long or the wide format
+
+### Iris dataset
+
+As a first example, let us take the `iris` dataset
+
+```{r}
+data("iris")
+```
+
+```{r}
+head(iris)
+```
+
+Each row in this dataset gives the measure of sepal length and width and petal length and width for 50 flowers from each of the 3 species of iris (type `help(iris)`). Each row represents an observation (a flower) of 4 variables (Attributes). So, this representation of the data cannot be considered in the long format because it has more than one attribute. Therefore, it is in wide format.
+
+### HairEyeColor dataset
+
+Let us use another `R` dataset: `HirEyeColor`
+
+```{r}
+data("HairEyeColor")
+```
+
+```{r}
+head(HairEyeColor)
+```
+
+```{r}
+str(HairEyeColor)
+```
+
+```{r}
+print(HairEyeColor)
+```
+
+As we can see this a 3-d matrix with Hair color, eye color and Sex where each dimension is a factor and the value of each cell represents the total number of students out of the total sample size 592 with a given combination of Hair color, eye color and sex. If we transform the matrix into a data frame, each row represents one type of observation and only one with one attibute: the count of students with a given type of Hair, Eye and sex. Therefore, this dataset is in long format. 
+
+```{r}
+hec <- as.data.frame(HairEyeColor)
+head(hec)
+```
+ 
+### Jonhson & Johnson dataset
+
+The third example is the Jonhson & Johnson quarterly earnings dataset
+ 
+```{r}
+data("JohnsonJohnson")
+```
+ 
+```{r}
+head(JohnsonJohnson)
+```
+
+```{r}
+str(JohnsonJohnson)
+```
+ 
+In this example, each row represents the quarterly earnings in dollars of Johnson & Johnson. So, first row is Q1 1960, second row Q2 1960 and in this way sequently. As each represents only one value, the format of this time series once represented as table will be in long format. Let us build this table.
+
+```{r}
+JJ <- data.frame(year = rep(1960:1980, each = 4), quarter = paste0("Qtr", rep(1:4, 21)), earnings = as.vector(JohnsonJohnson))
+```
+
+```{r}
+head(JJ)
+```
+
+### Indometh Dataset
+
+A fourth example is the Indometh dataset, used in the examples of the `reshape` help function
+
+```{r}
+head(Indometh)
+```
+
+It is in the Long format as for every Subject and time, only one value (attribute) of the concentration is given.
+
+## Reshape function
+
+The reshape function applies to data frames. It has the following parameters:
+
+* data 
+* varying
+* v.names
+* timevar
+* idvar
+* ids
+* times
+* drop
+* direction
+* new.row.names
+* sep
+* split
+
+Before we explain the parameters, it is important to identify 3 types of columns in a long format data frame:
+
+1) **Idvar** column/s: One or more columns that identify in an unique way each row once the data frame is in wide format. This column (or columns) are passed to the `idvar` parameter
+2) **Timevar** column: the column (only one) that will be used to create the new columns in the wide format, one column per each value in the column. The name timevar comes from the specific application when this column represents different moments in time. For many applications, this name is quite confusing. The name of this column is passed to `timevar` parameter.
+3) **Other column(s)**: the column that contains the values that will be now distributed along the timevar column. This column (or columns as we will see later) is listed in the `v.names` parameter. this column corresponds to the attribute (value) column we dicussed in the first section
+
+Note that the `timevar` column depends on the variable we want to move to the wide format. I feel that one example will help us to understand this point.
+
+### Example to identify: idvar, timevar and other columns
+
+Let as take the Johnson & Johnson dataset, a data frame in the long format:
+
+```{r}
+str(JJ)
+```
+
+There are 3 columns: year, quarter and earnings
+
+Clearly, earnings column is the 'other' column
+
+We can decide that the timevar column is the year. Then, the reshape function wil return a data frame where there will be one column for the earnings of each year. In this case, the idvar column will be the quarter.
+
+The only parameters we need to pass to the function are
+
+1. data = JJ (name of the data frame)
+2. direction = "wide" (direction in which the data frame is transformed: "wide" when long to wide, "long" in other cases)
+3. idvar = "quarter"
+4. timevar = "year"
+5. v.names = "earnings" (although it is not required because, by default, all columns that are not idvar or timevar are taken as Other type)
+
+
+```{r}
+reshape(data = JJ, direction = "wide",
+  timevar = "year",
+  idvar = "quarter",
+  v.names = "earnings")
+```
+
+Note that the columns names in the "wide" format have been built by concatenating the Other column name ("earnings") with a point (".") and the timevar values. The separator "." is the default value for the `sep` parameter. Any other value can be used as separator.
+
+On the other hand, if we take the quarter as timevar, the reshape function will return a data frame where there will be one column for the earnings for each quarter. The idvar will be in this case the year.
+
+
+```{r}
+wide_1 <- reshape(data = JJ, direction = "wide", 
+  timevar = "quarter",
+  idvar = "year", 
+  sep = "_")
+head(wide_1)
+```
+
+We have omitted in this second example the `v.names` parameter as it can be guessed by the function and changed the separator from "." to "_".
+
+### Long to Wide format
+
+It is possible to continue moving a column to wide format. 
+
+Let us take our last example `wide_1`. Column year will be our timevar column and the rest of columns (`names(wide_1)[-1]`) as other columns. Note that in this case we do not have an idvar column. As it is compulsory to identify one of the columns as idvar, we create first an id column, having in mind that `wide_1` has `r nrow(wide_1)` columns
+
+```{r}
+wide_1$id <- rep(1, 21)
+```
+
+Now we can continue to move "year" timevar column to wide format
+
+```{r}
+wide_2 <- reshape(data = wide_1, direction = "wide",
+  timevar = "year",
+  idvar = "id", 
+  sep = ":")
+head(wide_2[, 1:6])
+```
+
+We have just transposed the initial long data frame `JJ`.
+
+```{r}
+str(t(JJ))
+```
+
+In the transpose of `JJ` numeric value has been coherced to character when the original data frame has been converted into a matrix before transposing it.
+
+Through this example, we have explained the parameters `idvar`, `timevar`, `v.names`, `data`, `sep` and `direction`. We can try it also with the `hec` data frame. 
+
+```{r}
+str(hec)
+```
+
+
+We can chose three different columns as timevar, the values of which will become columns: Hair, Eye and Sex. Let us chose Sex. Then we build the wide representation
+
+```{r}
+hec_1 <- reshape(data = hec, direction = "wide", 
+  timevar = "Sex",
+  idvar = c("Hair", "Eye"),
+  v.names = "Freq",
+  sep = "_")
+hec_1
+```
+
+We can move one more column to wide format, Eye, for instance:
+
+```{r}
+hec_2 <-  reshape(data = hec_1, direction = "wide",
+  timevar = "Eye",
+  idvar = "Hair",
+  sep = ":")
+hec_2
+```
+
+Nothing more is required to transform a data frame in long format to a wide format.
+
+### Long to Wide format recap
+
+You write the following template for the reshape function:
+
+```
+reshape(data = df, direction = "wide",
+  timevar = , 
+  idvar = ,
+  v.names =)
+```
+
+where `df` is the varibale that contains the data frame you want to transform to wide 
+
+1. identify the column that you to want to use to expand the column number in the wide format (it can only be 1 column). This is the `timevar` parameter.
+1. identify the column (or columns) that will identify in an unique way each observation in the wide format. These are the `ìdvar`columns.
+1. Finally, the column(s) left is the other column, parameter `v.names`
+
+You put the parameters that you identified in this 3 steps in the 3 parameters of the template.
+
+### Wide to Long format
+
+The template for the reshape function when tranforming a data frame from wide to long is even simpler. Sometimes, it may become complicated. 
+
+```
+reshape(data = df, direction = "long", 
+  #timevar = , times =,
+  #idvar = , ids,
+  #v.names =, 
+  varying =,
+  #sep = "."
+  )
+```
+
+Only one step is required:
+
+1. To identify the columns we want to move from the wide to long format in the parameter `varying`. We can pass the names of the columns or the indeces to obtain those names from names(df). 
+
+If this method works, the other required parameter (`v.names`) will be guessed from the column names using a split with a "·" as a separator. An error will be raised when `v.names` cannot be determined.
+
+Nevertheless, the obtained result can be far from expectations. Playing with the other parameters will help us to adjust the final result to our needs.
+
+Let us create a simple example to show this general first approach
+
+```{r}
+w_df <- data.frame(
+  city = c("London", "Barcelona", "Paris"),
+  rivers = c(1, 2, 1),
+  letters = c(6, 9, 5),
+  stringsAsFactors = F
+)
+w_df
+```
+
+
+```{r, eval = FALSE}
+reshape(w_df, direction = "long",
+  varying = 2:3)
+```
+
+As the `v.names` cannot be determined by spliting varying names with the default `sep` ("."),  we have to provide a value to `v.names`
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3)
+```
+
+Parameter `times` was not given and takes the default value (`seq_along(varying[[1]])`), that in this example is `1:2`.
+
+We can give the values to `times`
+
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3,
+  times = names(w_df)[2:3])
+```
+
+By default, `timevar` column name is named `time` by default. We can change it with `timevar` parameter
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3,
+  times = names(w_df)[2:3],
+  timevar = "measure")
+```
+
+Note that a colun called `id` has been created to play the role of `idvar` column in the long format. We call it differently or using an existing column to become `idvar` column. We will use `city` column.
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3,
+  times = names(w_df)[2:3],
+  timevar = "measure",
+  idvar = "city")
+```
+
+In case there is or do ot want to use any existing column as `idvar`, we can define its values with the `ids` parameter
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3,
+  times = names(w_df)[2:3],
+  timevar = "measure",
+  idvar = "city_id",
+  ids = paste0("#", 1:3))
+```
+
+Coming back to the previous example, we can get the final result (at least, the one I expected) by changing the row identifiers. Parameter `new.row.names` fills this purpose
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3,
+  times = names(w_df)[2:3],
+  timevar = "measure",
+  idvar = "city",
+  new.row.names = 1:6)
+```
+
+When `v.names` can be deduced from the `varying` names, then the final result can be achieve faster. Let us modify sñightly the data frame of the previous example
+
+```{r}
+w_df2 <- data.frame(
+  city = c("London", "Barcelona", "Paris"),
+  value.rivers = c(1, 2, 1),
+  value.letters = c(6, 9, 5),
+  stringsAsFactors = F
+)
+w_df2
+```
+
+Now, just with `varying` parameter we obtain a result
+
+```{r}
+reshape(w_df2, direction = "long",
+  varying = 2:3)
+```
+
+and the final result by
+
+```{r}
+reshape(w_df2, direction = "long",
+  varying = 2:3,
+  timevar = "measure",
+  idvar = "city",
+  new.row.names = 1:6)
+```
+
+#### Iris dataset
+We will now apply the same rules other wide data frames.
+
+We start with the `iris` well known dataframe [R-Bloggers](https://www.r-bloggers.com/the-reshape-function/)
+
+```{r}
+head(iris)
+```
+
+```{r}
+long_iris <- reshape(data = iris, direction = "long"
+  , timevar = "dimension"
+  , times = names(iris)[1:4] 
+  , idvar = "flower_ID"
+  , ids = paste0("f", 1:150)
+  , v.names = "Measurements"
+  , varying = 1:4
+  , new.row.names = 1:600
+  )
+head(long_iris)
+```
+
+```{r}
+str(long_iris)
+```
+
+```{r}
+long_iris_2 <- reshape(data = iris, direction = "long",
+  timevar = "measure", 
+  times = c("Length", "Width"), 
+  idvar = "flower_ID",
+  ids = paste0("f", 1:150),
+  v.names = c("Sepal", "Petal"),
+  varying = 1:4,
+  new.row.names = 1:300)
+head(long_iris_2)
+```
+
+```{r}
+long_iris_3 <- reshape(data = long_iris_2, direction = "long",
+  timevar = "part", 
+  times = c("Sepal", "Petal"),
+  idvar = "flower_ID",
+  v.names = "values",
+  varying = 3:4,
+  new.row.names = 1:600)
+head(long_iris_3)
+```
+
+finally, we can keep the size measures in the wide format
+
+```{r}
+long_iris_4 <- reshape(data = iris, direction = "long",
+  timevar = "part", 
+  times = c("Sepal", "Petal"), 
+  idvar = "flower_ID",
+  ids = paste0("f", 1:150),
+  v.names = c("Length", "Width"),
+  #varying = 1:4,
+  varying = list(c(1, 3), c(2, 4)),
+  new.row.names = 1:300)
+head(long_iris_4)
+```
+
+#### reshape help examples
+
+The three following examples can be found in the `reshape` function help [link](https://stat.ethz.ch/R-manual/R-patched/library/stats/html/reshape.html)
+
+Let us start with the Indometh dataset. 
+
+```{r}
+head(Indometh)
+```
+
+
+If column `time` is considered as `timevar` and `Subject` as `idvar`, then 
+
+```{r}
+indo_wide <- reshape(data = Indometh, direction = "wide",
+  timevar = "time",
+  idvar = "Subject")
+indo_wide
+```
+
+If we do the other way around
+
+```{r}
+indo_wide_2 <- reshape(data = Indometh, direction = "wide",
+  timevar = "Subject",
+  idvar = "time"
+  )
+indo_wide_2
+```
+
+
+One more example
+
+```{r}
+df <- data.frame(id = rep(1:4, rep(2,4)),
+                 visit = I(rep(c("Before","After"), 4)),
+                 x = rnorm(4), y = runif(4))
+df
+```
+
+```{r}
+df_1 <- reshape(data = df
+  , direction = "wide"
+  , idvar = "visit"
+  , timevar = "id")
+df_1
+```
+
+We could also expand the visit in columns
+
+```{r}
+df_2 <- reshape(data = df
+  , direction = "wide"
+  , idvar = "id"
+  , timevar = "visit")
+df_2
+```
+
+
+Example using state.x77, matrix with 8 columns with info about the 50 states of USA
+
+```{r}
+str(state.x77)
+df.x77 <- as.data.frame(state.x77)
+```
+
+```{r}
+str(df.x77)
+```
+
+To transform it into a Long format data frame
+
+```{r}
+long.x77 <- reshape(data = df.x77 , direction = "long"
+  , idvar ="state", ids = row.names(state.x77)
+  , timevar = "variable", times = names(df.x77) 
+  , v.names = "value", varying = 1:8 #varying = list(names(df.x77))
+  , new.row.names = 1:400)
+head(long.x77)
+```
+
+Turn into a new wide format.
+First we do it automatically
+
+```{r}
+head(reshape(long.x77, direction = "wide"))
+```
+
+Secondly, we can force the wide format as teh long one was the original shape
+
+```{r}
+head(
+  reshape(data = long.x77, direction = "wide"
+  , idvar = "state"
+  , timevar = "variable"
+  , sep = "_")
+)
+```
+
+We can also do the equivalent of a transposition by goin first to long format (long.x77) and later to wide (wide.x77)
+
+```{r}
+wide.x77 <- reshape(data = long.x77
+  , direction = "wide"
+  , idvar = "variable"
+  , timevar = "state"
+  , sep = "_")
+wide.x77[, 1:5]
+```
+
+#### Example 1
+
+Another example, from [link](https://egret.psychol.cam.ac.uk/statistics/R/enteringdata.html)
+
+```{r}
+df3 <- data.frame(id = 1:4, age = c(40,50,60,50), dose1 = c(1,2,1,2),
+                  dose2 = c(2,1,2,1), dose4 = c(3,3,3,3))
+df3
+```
+
+```{r}
+reshape(data = df3, direction = "long"
+  , idvar = "id"
+  , timevar = "dose_type"
+  , times = c(1, 2, 4)
+  , v.names = "dose"
+  , varying = 3:5
+  , new.row.names = 1:12
+  , sep = "")
+```
+
+
+```{r}
+reshape(data = df3, direction = "long"
+  , varying = 3:5
+  , sep = "")
+```
+
+#### Example 2
+
+One more example, from [TRinker's R Blog](https://trinkerrstuff.wordpress.com/2012/05/06/reshape-from-base-explained-part-ii/)
+
+```{r}
+set.seed(10)
+dat <- data.frame(id=paste0("ID",1:5), 
+    sex=sample(c("male", "female"), 5, replace=TRUE), 
+    matrix(rpois(30, 10), 5, 6))
+colnames(dat)[-c(1:2)] <- paste0(rep(1:2, times=3), 
+    rep(c("work", "home", "church"), 2))
+dat
+```
+
+```{r}
+reshape(dat, direction="long"
+  , idvar = "id"
+  , timevar = "part_area"
+  , times = names(dat)[3:8]
+  , v.names = "# pieces"
+  , varying = 3:8
+  , new.row.names = 1:30)
+```
+
+```{r}
+reshape(data = dat, direction = "long",
+  varying = list(c(3, 7, 5), c(6, 4, 8)),
+  idvar = "id",
+  v.names = c("TIME_1", "TIME_2"),
+  timevar = "PLACE",
+  times = c("wrk", "hom", "chr"),
+  new.row.names = 1:15)
+```
+
+```{r}
+reshape(data = dat, direction = "long",
+  timevar = "TIME",
+  times = 1:2,
+  varying = list(c(3, 6), c(7, 4), c(5,8)),
+  v.names = c("WORK", "HOME", "CHURCH"),
+  new.row.names = 1:10)
+```
+
+```{r}
+wide_1 <- reshape(data = dat, direction = "long",
+  timevar = "TIME",
+  times = 1:2,
+  varying = list(c(3, 6), c(7, 4), c(5,8)),
+  v.names = c("WORK", "HOME", "CHURCH"),
+  new.row.names = 1:10)
+
+reshape(data = wide_1, direction = "long",
+  timevar = "PLACE",
+  times = names(wide_1)[4:6], #c("work", "home", "church")
+  varying = 4:6, #c("WORK", "HOME", "CHURCH"),
+  v.names = "# people",
+  new.row.names = 1:30)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
