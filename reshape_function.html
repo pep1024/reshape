@@ -431,7 +431,7 @@ head(hec)</code></pre>
 <p>The only parameters we need to pass to the function are</p>
 <ol style="list-style-type: decimal">
 <li>data = JJ (name of the data frame)</li>
-<li>direction = “wide” (we which direction the data frame is transformed “wide” when long to wide, “long” in the other cases)</li>
+<li>direction = “wide” (direction in which the data frame is transformed: “wide” when long to wide, “long” in other cases)</li>
 <li>idvar = “quarter”</li>
 <li>timevar = “year”</li>
 <li>v.names = “earnings” (although it is not required because, by default, all columns that are not idvar or timevar are taken as Other type)</li>
@@ -860,37 +860,37 @@ indo_wide_2</code></pre>
                  visit = I(rep(c(&quot;Before&quot;,&quot;After&quot;), 4)),
                  x = rnorm(4), y = runif(4))
 df</code></pre>
-<pre><code>##   id  visit           x          y
-## 1  1 Before  0.68067275 0.24708201
-## 2  1  After -1.70105737 0.07605672
-## 3  2 Before -0.07232883 0.44430421
-## 4  2  After -0.42468396 0.08968250
-## 5  3 Before  0.68067275 0.24708201
-## 6  3  After -1.70105737 0.07605672
-## 7  4 Before -0.07232883 0.44430421
-## 8  4  After -0.42468396 0.08968250</code></pre>
+<pre><code>##   id  visit          x         y
+## 1  1 Before -0.6405795 0.7364623
+## 2  1  After  0.2943682 0.5466475
+## 3  2 Before  0.3397886 0.8687797
+## 4  2  After -0.5491833 0.1694951
+## 5  3 Before -0.6405795 0.7364623
+## 6  3  After  0.2943682 0.5466475
+## 7  4 Before  0.3397886 0.8687797
+## 8  4  After -0.5491833 0.1694951</code></pre>
 <pre class="r"><code>df_1 &lt;- reshape(data = df
   , direction = &quot;wide&quot;
   , idvar = &quot;visit&quot;
   , timevar = &quot;id&quot;)
 df_1</code></pre>
-<pre><code>##    visit        x.1        y.1         x.2       y.2        x.3        y.3
-## 1 Before  0.6806727 0.24708201 -0.07232883 0.4443042  0.6806727 0.24708201
-## 2  After -1.7010574 0.07605672 -0.42468396 0.0896825 -1.7010574 0.07605672
-##           x.4       y.4
-## 1 -0.07232883 0.4443042
-## 2 -0.42468396 0.0896825</code></pre>
+<pre><code>##    visit        x.1       y.1        x.2       y.2        x.3       y.3
+## 1 Before -0.6405795 0.7364623  0.3397886 0.8687797 -0.6405795 0.7364623
+## 2  After  0.2943682 0.5466475 -0.5491833 0.1694951  0.2943682 0.5466475
+##          x.4       y.4
+## 1  0.3397886 0.8687797
+## 2 -0.5491833 0.1694951</code></pre>
 <p>We could also expand the visit in columns</p>
 <pre class="r"><code>df_2 &lt;- reshape(data = df
   , direction = &quot;wide&quot;
   , idvar = &quot;id&quot;
   , timevar = &quot;visit&quot;)
 df_2</code></pre>
-<pre><code>##   id    x.Before  y.Before   x.After    y.After
-## 1  1  0.68067275 0.2470820 -1.701057 0.07605672
-## 3  2 -0.07232883 0.4443042 -0.424684 0.08968250
-## 5  3  0.68067275 0.2470820 -1.701057 0.07605672
-## 7  4 -0.07232883 0.4443042 -0.424684 0.08968250</code></pre>
+<pre><code>##   id   x.Before  y.Before    x.After   y.After
+## 1  1 -0.6405795 0.7364623  0.2943682 0.5466475
+## 3  2  0.3397886 0.8687797 -0.5491833 0.1694951
+## 5  3 -0.6405795 0.7364623  0.2943682 0.5466475
+## 7  4  0.3397886 0.8687797 -0.5491833 0.1694951</code></pre>
 <p>Example using state.x77, matrix with 8 columns with info about the 50 states of USA</p>
 <pre class="r"><code>str(state.x77)</code></pre>
 <pre><code>##  num [1:50, 1:8] 3615 365 2212 2110 21198 ...

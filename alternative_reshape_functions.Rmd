@@ -1,0 +1,582 @@
+---
+title: "`pivot_wider` and `pivot_longer` as alternative to `reshape` base `R` function"
+author: "Pep Porrà"
+date: "May 4, 2020"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 4
+    toc_float:
+      collapsed: FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(stringr)
+```
+
+## Goal
+
+The goal of this note is to rewrite all examples in [Rpubs.com/pep1024](https://rpubs.com/pep1024/reshape) to transform (reshape) a data frame between the long and wide formats using `pivot_*` functions in `tidyr` package instead of the `reshape` base `R` function .
+
+Functions `pivot_wide`and `pivot_long` are the latest functions created by Hadley Wickham to replace the original `reshape` function in base R. An essay of alternative cronology is the following:
+
+1. `reshape` package first published in 2005 with functions `melt` and `cast` [CRAN](https://cran.r-project.org/src/contrib/Archive/reshape/)
+1. `reshape2`package as a reboot of the `reshape` package. First published 2010 [CRAN](https://cran.r-project.org/src/contrib/Archive/reshape2/)
+1. `tidyr` package published in 2014 with functions `gather` and `spread` [CRAN](https://cran.r-project.org/src/contrib/Archive/tidyr/)
+1. `tidyr` new functions `pivot_longer` and `pivot_wider`. First published in 2019 [news](https://www.tidyverse.org/blog/2019/09/tidyr-1-0-0/)
+
+## Wider formats
+
+Examples in [ref](https://rpubs.com/pep1024/reshape) of `reshape` function
+
+### `JohnsonJohnson` dataset
+
+Let as take the Johnson & Johnson dataset, a data frame in the long format:
+
+```{r}
+data("JohnsonJohnson")
+JJ <- data.frame(year = rep(1960:1980, each = 4),
+  quarter = paste0("Qtr", rep(1:4, 21)), 
+  earnings = as.vector(JohnsonJohnson))
+tibble(JJ)
+```
+
+```{r}
+reshape(data = JJ, direction = "wide",
+  timevar = "year",
+  idvar = "quarter",
+  v.names = "earnings")
+```
+
+How can we get the same result using `pivot_wide`?
+
+```{r}
+JJ %>% pivot_wider(names_from = year, values_from = earnings, names_prefix = "earnings.")
+```
+
+A different wider table generated from `JJ`
+
+```{r}
+wide_1 <- reshape(data = JJ, direction = "wide", 
+  timevar = "quarter",
+  idvar = "year", 
+  sep = "_")
+tibble(wide_1)
+```
+
+```{r}
+JJ %>% pivot_wider(names_from = quarter, values_from = earnings, names_prefix = "earnings.")
+```
+
+```{r}
+wide_1$id <- rep(1, 21)
+```
+
+Now we can continue to move "year" timevar column to wide format
+
+```{r}
+wide_2 <- reshape(data = wide_1, direction = "wide",
+  timevar = "year",
+  idvar = "id", 
+  sep = ":")
+tibble(wide_2[, 1:6])
+```
+
+We have just transposed the initial long data frame `JJ`. the same result can be achieved in one step using `pivot_wider`:
+
+```{r}
+JJ %>% pivot_wider(names_from = c(quarter, year), values_from = earnings, names_prefix = "earnings_",
+  names_sep = ":")
+```
+
+### `HairEyeColor` dataset
+
+```{r}
+data("HairEyeColor")
+hec <- as.data.frame(HairEyeColor)
+tibble(hec)
+```
+
+
+```{r}
+hec_1 <- reshape(data = hec, direction = "wide", 
+  timevar = "Sex",
+  idvar = c("Hair", "Eye"),
+  v.names = "Freq",
+  sep = "_")
+tibble(hec_1)
+```
+
+The equivalent form with `pivot_wider` will be
+
+```{r}
+hec %>% pivot_wider(names_from = Sex, values_from = Freq, names_prefix = "Freq_")
+```
+
+```{r}
+hec_2 <-  reshape(data = hec_1, direction = "wide",
+  timevar = "Eye",
+  idvar = "Hair",
+  sep = ":")
+tibble(hec_2)
+```
+
+Again, the same can be obtained with one step
+
+```{r}
+hec %>% pivot_wider(names_from = c(Sex, Eye), values_from = Freq, names_prefix = "Freq_",
+  names_sep = ":")
+```
+
+## Longer formats
+
+### first example
+
+```{r}
+w_df <- data.frame(
+  city = c("London", "Barcelona", "Paris"),
+  rivers = c(1, 2, 1),
+  letters = c(6, 9, 5),
+  stringsAsFactors = F
+)
+tibble(w_df)
+```
+
+
+```{r}
+reshape(w_df, direction = "long",
+  v.names = "value",
+  varying = 2:3,
+  times = names(w_df)[2:3],
+  timevar = "measure",
+  idvar = "city",
+  new.row.names = 1:6)
+```
+
+Probably `w_df` could be better defined as a `tibble`
+
+```{r}
+w_tibble <- tribble(
+  ~city, ~rivers, ~letters,
+  "London",	1, 6,
+  "Barcelona", 2,	9,
+  "Paris", 1,	5  
+)
+```
+
+```{r}
+w_tibble %>% pivot_longer(-city, names_to = "measure", values_to = "value") %>% 
+  arrange(desc(measure))
+```
+
+### `Iris` dataset
+
+We start with the `iris` well known dataframe as used in the post  [R-Bloggers](https://www.r-bloggers.com/the-reshape-function/)
+
+```{r}
+data("iris")
+as_tibble(iris)
+```
+
+```{r}
+long_iris <- reshape(data = iris, direction = "long"
+  , timevar = "dimension"
+  , times = names(iris)[1:4] 
+  , idvar = "flower_ID"
+  , ids = paste0("f", 1:150)
+  , v.names = "Measurements"
+  , varying = 1:4
+  , new.row.names = 1:600
+  )
+tibble(long_iris)
+```
+
+The equivalent with `pivot_longer` requires first to create `flower_ID` column
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = "dimension", values_to = "Measurements")
+```
+
+To obtain precisely the same order as with reshape, we need to reorder columns and arrage rows
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = "dimension", values_to = "Measurements") %>%
+  select(1, 3, 4, 2) %>% arrange(factor(dimension, levels = names(iris)[1:4]))
+```
+
+
+
+
+```{r}
+str(long_iris)
+```
+
+```{r}
+long_iris_2 <- reshape(data = iris, direction = "long",
+  timevar = "measure", 
+  times = c("Length", "Width"), 
+  idvar = "flower_ID",
+  ids = paste0("f", 1:150),
+  v.names = c("Sepal", "Petal"),
+  varying = 1:4,
+  new.row.names = 1:300)
+tibble(long_iris_2)
+```
+
+In this second example, we are puting in longer format columns 1:2 for Sepal and columns 3:4 for Petal.
+There are several ways to acheive it. May be the clearest is to use the longest expression found before, split column dimension into measure (Length, Width) and part (Sepal, Petal) and then recreate the wider format we may want
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = "dimension", values_to = "Measurements") %>%
+  mutate(part = str_split_fixed(dimension, "\\.", 2)[, 1], 
+    measure = str_split_fixed(dimension, "\\.", 2)[, 2]) %>% select(-dimension)
+```
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = "dimension", values_to = "Measurements") %>%
+  mutate(part = str_split_fixed(dimension, "\\.", 2)[, 1], 
+    measure = str_split_fixed(dimension, "\\.", 2)[, 2]) %>% select(-dimension) %>%
+  pivot_wider(names_from = part, values_from = Measurements)
+```
+
+Can we obtain long_iris_2 using only `pivot_longer`?
+
+names_to = c(".value", "child"), 
+    names_sep = "_", 
+    values_drop_na = TRUE
+
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = c(".value","measure"), names_sep = "\\.")
+```
+
+```{r}
+long_iris_3 <- reshape(data = long_iris_2, direction = "long",
+  timevar = "part", 
+  times = c("Sepal", "Petal"),
+  idvar = "flower_ID",
+  v.names = "values",
+  varying = 3:4,
+  new.row.names = 1:600)
+tibble(long_iris_3)
+```
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = c("part","measure"), names_sep = "\\.")
+```
+
+finally, we can keep the size measures in the wide format
+
+```{r}
+long_iris_4 <- reshape(data = iris, direction = "long",
+  timevar = "part", 
+  times = c("Sepal", "Petal"), 
+  idvar = "flower_ID",
+  ids = paste0("f", 1:150),
+  v.names = c("Length", "Width"),
+  #varying = 1:4,
+  varying = list(c(1, 3), c(2, 4)),
+  new.row.names = 1:300)
+tibble(long_iris_4)
+```
+
+```{r}
+iris %>% mutate(flower_ID = str_c("f", 1:150)) %>%
+  pivot_longer(-c(Species, flower_ID), names_to = c("part", ".value"), names_sep = "\\.") %>%
+  select(1, 3, 4, 5, 2) %>% arrange(desc(part))
+```
+
+## `reshape` help examples
+
+The three following examples can be found in the `reshape` function help [link](https://stat.ethz.ch/R-manual/R-patched/library/stats/html/reshape.html)
+
+### `Indometh` dataset 
+Let us start with the Indometh dataset. 
+
+```{r}
+head(Indometh)
+```
+
+
+If column `time` is considered as `timevar` and `Subject` as `idvar`, then 
+
+```{r}
+indo_wide <- reshape(data = Indometh, direction = "wide",
+  timevar = "time",
+  idvar = "Subject")
+tibble(indo_wide)
+```
+
+```{r}
+Indometh %>% 
+  pivot_wider(names_from = "time", values_from = "conc", names_prefix = "conc.")
+```
+
+
+If we do the other way around
+
+```{r}
+indo_wide_2 <- reshape(data = Indometh, direction = "wide",
+  timevar = "Subject",
+  idvar = "time"
+  )
+tibble(indo_wide_2)
+```
+
+
+```{r}
+Indometh %>% 
+  pivot_wider(names_from = "Subject", values_from = "conc", names_prefix = "conc.")
+```
+
+
+### visit dataframe
+
+```{r}
+df <- data.frame(id = rep(1:4, rep(2,4)),
+                 visit = I(rep(c("Before","After"), 4)),
+                 x = rnorm(4), y = runif(4))
+tibble(df)
+```
+
+```{r}
+df_1 <- reshape(data = df
+  , direction = "wide"
+  , idvar = "visit"
+  , timevar = "id")
+tibble(df_1)
+```
+
+```{r}
+df %>% pivot_wider(names_from = "id", values_from = c("x", "y"), names_sep = ".")
+```
+
+We could also expand the visit in columns
+
+```{r}
+df_2 <- reshape(data = df
+  , direction = "wide"
+  , idvar = "id"
+  , timevar = "visit")
+tibble(df_2)
+```
+
+```{r}
+df %>% pivot_wider(names_from = "visit", values_from = c("x", "y"), names_sep = ".")
+```
+
+### state.x77
+
+Example using state.x77, matrix with 8 columns with info about the 50 states of USA
+
+```{r}
+str(state.x77)
+df.x77 <- as.data.frame(state.x77)
+```
+
+```{r}
+str(df.x77)
+```
+
+To transform it into a Long format data frame
+
+```{r}
+long.x77 <- reshape(data = df.x77 , direction = "long"
+  , idvar ="state", ids = row.names(state.x77)
+  , timevar = "variable", times = names(df.x77) 
+  , v.names = "value", varying = 1:8 #varying = list(names(df.x77))
+  , new.row.names = 1:400)
+as_tibble(long.x77)
+```
+
+```{r}
+df.x77 %>% mutate(state = row.names(df.x77)) %>%
+  pivot_longer(-state, names_to = "variable", values_to = "value") 
+```
+
+```{r}
+df.x77 %>% mutate(state = row.names(df.x77)) %>%
+  pivot_longer(-state, names_to = "variable", values_to = "value") %>%
+  # in case we want exactly the same order
+  select(2, 3, 1) %>%
+  arrange(factor(variable, levels = names(df.x77)), state)
+```
+
+
+Turn into a new wide format.
+First we do it automatically
+
+```{r}
+tibble(reshape(long.x77, direction = "wide"))
+```
+
+Secondly, we can force the wide format as teh long one was the original shape
+
+```{r}
+tibble(
+  reshape(data = long.x77, direction = "wide"
+  , idvar = "state"
+  , timevar = "variable"
+  , sep = "_")
+)
+```
+
+We can also do the equivalent of a transposition by goin first to long format (long.x77) and later to wide (wide.x77)
+
+```{r}
+wide.x77 <- reshape(data = long.x77
+  , direction = "wide"
+  , idvar = "variable"
+  , timevar = "state"
+  , sep = "_")
+tibble(wide.x77)
+```
+
+### Example 1
+
+Another example, from [link](https://egret.psychol.cam.ac.uk/statistics/R/enteringdata.html)
+
+```{r}
+df3 <- data.frame(id = 1:4, age = c(40,50,60,50), dose1 = c(1,2,1,2),
+                  dose2 = c(2,1,2,1), dose4 = c(3,3,3,3))
+tibble(df3)
+```
+
+```{r}
+reshape(data = df3, direction = "long"
+  , idvar = "id"
+  , timevar = "dose_type"
+  , times = c(1, 2, 4)
+  , v.names = "dose"
+  , varying = 3:5
+  , new.row.names = 1:12
+  , sep = "")
+```
+
+```{r}
+df3 %>% pivot_longer(-c(id, age), names_to = "dose_type", values_to = "dose",
+  names_pattern = "dose(.)", names_ptypes = list(dose_type = numeric()))
+```
+
+
+```{r}
+reshape(data = df3, direction = "long"
+  , varying = 3:5
+  , sep = "")
+```
+
+### Example 2
+
+One more example, from [TRinker's R Blog](https://trinkerrstuff.wordpress.com/2012/05/06/reshape-from-base-explained-part-ii/)
+
+```{r}
+set.seed(10)
+dat <- data.frame(id=paste0("ID",1:5), 
+    sex=sample(c("male", "female"), 5, replace=TRUE), 
+    matrix(rpois(30, 10), 5, 6))
+colnames(dat)[-c(1:2)] <- paste0(rep(1:2, times=3), 
+    rep(c("work", "home", "church"), 2))
+tibble(dat)
+```
+
+```{r}
+reshape(dat, direction="long"
+  , idvar = "id"
+  , timevar = "part_area"
+  , times = names(dat)[3:8]
+  , v.names = "# pieces"
+  , varying = 3:8
+  , new.row.names = 1:30)
+```
+
+```{r}
+dat %>% pivot_longer(-(1:2), names_to = "part_area", values_to = "# pieces")
+```
+
+```{r}
+reshape(data = dat, direction = "long",
+  varying = list(c(3, 7, 5), c(6, 4, 8)),
+  idvar = "id",
+  v.names = c("TIME_1", "TIME_2"),
+  timevar = "PLACE",
+  times = c("wrk", "hom", "chr"),
+  new.row.names = 1:15)
+```
+
+```{r}
+dat %>% pivot_longer(-(1:2), names_to = "part_area", values_to = "# pieces") %>%
+  mutate(part = as.numeric(str_sub(part_area, 1, 1)), area = str_extract(part_area, "\\D+")) %>%
+  mutate(PLACE = factor(area, levels = c("work", "home", "church"), labels = c("wrk", "hom", "chr"))) %>%
+  select(-c(part_area, area)) %>%
+  pivot_wider(names_from = part, values_from = "# pieces", names_prefix = "TIME_")
+```
+
+
+```{r}
+reshape(data = dat, direction = "long",
+  timevar = "TIME",
+  times = 1:2,
+  varying = list(c(3, 6), c(7, 4), c(5,8)),
+  v.names = c("WORK", "HOME", "CHURCH"),
+  new.row.names = 1:10)
+```
+
+ 
+```{r}
+dat %>% pivot_longer(-(1:2), names_to = c("TIME", ".value"), names_pattern = "(\\d)(\\D+)")
+```
+
+
+
+```{r}
+wide_1 <- reshape(data = dat, direction = "long",
+  timevar = "TIME",
+  times = 1:2,
+  varying = list(c(3, 6), c(7, 4), c(5,8)),
+  v.names = c("WORK", "HOME", "CHURCH"),
+  new.row.names = 1:10)
+
+reshape(data = wide_1, direction = "long",
+  timevar = "PLACE",
+  times = names(wide_1)[4:6], #c("work", "home", "church")
+  varying = 4:6, #c("WORK", "HOME", "CHURCH"),
+  v.names = "# people",
+  new.row.names = 1:30)
+```
+
+```{r}
+dat %>% pivot_longer(-(1:2), names_to = "part_area", values_to = "# people") %>%
+  mutate(TIME = as.numeric(str_sub(part_area, 1, 1)), PLACE = str_extract(part_area, "\\D+")) %>%
+  mutate(PLACE = str_to_upper(PLACE)) %>%
+  select(-part_area) %>% select(1:2, 4:5, 3) %>%
+  arrange(desc(PLACE), TIME)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
